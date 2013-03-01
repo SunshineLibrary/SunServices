@@ -2,60 +2,78 @@ clc     = require 'cli-color'
 init    = require './init.js'
 amqp    = require 'amqp'
 util    = require 'util'
-config  = require './config'
+events  = require 'events'
 
-JS.require('JS.Class')
+exports.RabbitMessenger = new JS.Class(events.EventEmitter, {
+  initialize: (connectionParams, listenQueueName, listenExchangeName, publishExchangeName) ->
+    this.connectionParams = connectionParams
+    this.listenQueueName = listenQueueName
+    this.listenExchangeName = listenExchangeName
+    this.publishExchangeName = publishExchangeName
 
-exports.RabbitMessenger = new JS.Class({
-    initialize: (listenQueueName, listenExchangeName, publishExchangeName) ->
-        this.listenQueueName = listenQueueName
-        this.listenExchangeName = listenExchangeName
-        this.publishExchangeName = publishExchangeName
+    this.pendingMessages = []
+    this.connection = null
+    this.listenQueue = null
+    this.publishExchange = null
 
-        this.connection = null
-        this.listenQueue = null
-        this.publishExchange = null
+  start: ->
+    self = this
+    util.log('Connecting to RabbitMQ server...')
+    this.connection = amqp.createConnection(this.connectionParams)
+    this.connection.on('ready', -> self.onConnected())
 
-        this.isListening = false
-        this.pendingMessages = []
+  onConnected: ->
+    self = this
+    util.log('Declaring listen queue: ' + this.listenQueueName)
+    queueParams = {durable: true, exclusive: false, autoDelete: false}
 
-    start: ->
-        self = this
-        util.log('Connecting to RabbitMQ server...')
-        this.connection = amqp.createConnection(config.connection_params)
-        this.connection.on('ready', -> self.onConnected())
+    this.connection.queue(this.listenQueueName, queueParams, (queue) ->
+      util.log(clc.green('Declared queue: ' + self.listenQueueName))
+      util.log('Binding ' + self.listenQueueName + ' to ' + self.listenExchangeName)
+      queue.bind(self.listenExchangeName, '')
+      queue.on('error', (error) ->
+        util.log(clc.red('Failed to bind to exchange: ' + self.listenExchangeName))
+      )
+      queue.on('queueBindOk', ->
+        util.log(clc.green('Bound ' + self.listenQueueName + ' to exchange: ' + self.listenExchangeName))
+        self.listenQueue = queue
+        self.bindListener()
+      )
+    )
 
-    onConnected: ->
-        self = this
-        util.log('Declaring listen queue: ' + this.listenQueueName)
-        queueParams = {durable: true, exclusive: false, autoDelete: false}
+    util.log('Declaring exchange: ' + self.publishExchangeName)
+    exchangeParams = {durable: true, type: 'fanout', autoDelete: false}
+    exchange = this.connection.exchange(this.publishExchangeName, exchangeParams, (exchange) ->
+      util.log(clc.green('Declared exchange: ' + self.publishExchangeName))
+      self.publishExchange = exchange
+      self.publish message for message in self.pendingMessages
+      self.pendingMessages = []
+    )
 
-        this.connection.queue(this.listenQueueName, queueParams, (queue) ->
-            util.log(clc.green('Declared queue: ' + self.listenExchangeName))
-            util.log('Binding ' + self.listenQueueName + ' to ' + self.listenExchangeName)
-            queue.bind(self.listenExchangeName, '')
-            queue.on('error', (error) ->
-                util.log(clc.red('Failed to bind to exchange: ' + self.listenExchangeName))
-            )
-            queue.on('queueBindOk', ->
-                util.log(clc.green('Bound ' + self.listenQueueName + ' to exchange: ' + self.listenExchangeName))
-                self.listenQueue = queue
-            )
-        )
+    exchange.on('error', (error) ->
+      util.log clc.red('Failed to create exchange: ' + self.listenExchangeName)
+    )
 
-        util.log('Declaring exchange: ' + self.listenExchangeName)
-        exchangeParams = {durable: true, type: 'fanout', autoDelete: false}
-        exchange = this.connection.exchange(this.publishExchangeName, exchangeParams, (exchange) ->
-            util.log(clc.green('Declared exchange: ' + self.listenExchangeName))
-            self.publishExchange = exchange
-        )
+  bindListener: ->
+    self = this
+    this.listenQueue.subscribe (message, headers, deliveryInfo) ->
+      util.log 'Received a message...'
+      self.emit('message', message, headers, deliveryInfo)
 
-        exchange.on('error', (error) ->
-            util.log(clc.red('Failed to create exchange: ' + self.listenExchangeName))
-        )
+  send: (message) ->
+    if this.publishExchange == null
+      util.log("Exchange not connected, pending count:" + this.pendingMessages.length)
+      this.pendingMessages.push message
+    else
+      this.publish message
 
-    setListener: (listener) ->
-        this.listener = listener
-        if this.listenQueue == null
-            return
+  publish: (message) ->
+      util.log("Sending message: "+ this.stringify(message))
+      this.publishExchange.publish "", message
+
+  stringify: (message) ->
+    if message instanceof String
+      message
+    else
+      JSON.stringify message
 })

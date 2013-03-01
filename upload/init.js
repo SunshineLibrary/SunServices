@@ -7,3 +7,5 @@ if (typeof require === 'function')
     require('./' + JSCLASS_PATH + '/loader');
 else if (typeof load === 'function')
     load(JSCLASS_PATH + '/loader.js');
+
+JS.require('JS.Class');
