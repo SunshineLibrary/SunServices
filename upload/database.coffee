@@ -1,56 +1,84 @@
-clc     = require 'cli-color'
-init   = require './init.js'
 util   = require 'util'
 events = require 'events'
-
-QUERY_CONDITION = 'sync_status = 1 OR sync_status = 3 OR sync_status = 4'
+clc    = require 'cli-color'
+init   = require './init.js'
+under  = require 'underscore'
 
 exports.Table = new JS.Class({
-  initialize: (pool, tableName, fields) ->
+  initialize: (pool, tableName, keys, fields) ->
     this.pool = pool
+    this.keys = keys
     this.fields = fields
+    this.allFields = under.union(keys, fields)
     this.tableName = tableName
 
-    this.insertQuery = 'INSERT INTO ' + tableName + join(fields) + ' VALUES '
-    this.selectQuery = 'SELECT * FROM ' + tableName + ' WHERE ' + QUERY_CONDITION
+  insert: (id, content) ->
+    this.execute(this.getInsertStatement(id, content), 'inserted')
 
-  insert: (row) ->
-    this.execute(this.insertQuery + joinValues(row, this.fields), 'insert')
+  query: ->
+    this.execute(this.getSelectStatement(), 'row')
 
-  query: () ->
-    this.execute(this.selectQuery, 'query')
+  update: (id, content) ->
+    this.execute(this.getUpdateStatement(id, content), 'updated')
 
-  update: () ->
-    this.execute(
+  delete: (id) ->
+    this.execute(this.getDeleteStatement(id), 'deleted')
 
-  execute: (statement, type) ->
+  changeStatus: (id, status) ->
+    this.execute(this.getChangeStatusStatement(id, status), 'updated')
+
+  execute: (statement, event) ->
     emitter = new events.EventEmitter()
     this.pool.getConnection (err, connection) ->
       connection.query(statement)
         .on 'error', (err) ->
           util.log(clc.red(err))
         .on 'result', (result) ->
-          console.log("Result" + result)
-          emitter.emit('row', result) if type == 'query'
+          emitter.emit(event, result)
         .on 'end', ->
           connection.end()
+          emitter.emit('end')
     return emitter
+
+  getInsertStatement: (id, content) ->
+    values = under.extend(under.clone(id), content)
+    values = pickValues(values, this.allFields)
+    'INSERT INTO ' + this.tableName + joinFields(this.allFields) + ' VALUES ' + joinFields(values)
+
+  getSelectStatement: ->
+    'SELECT * FROM ' + this.tableName + ' WHERE sync_status = 1 OR sync_status = 2 OR sync_status = 3'
+
+  getUpdateStatement: (id, content) ->
+    conditions = joinConditionValues(under.pick(id, this.keys))
+    values = joinKeyValues(under.pick(content, this.fields))
+    'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
+
+  getDeleteStatement: (id) ->
+    conditions = joinConditionValues(under.pick(id, this.keys))
+    'DELETE FROM ' + this.tableName + ' WHERE ' + conditions
+
+  getChangeStatusStatement: (id, status) ->
+    conditions = joinConditionValues(under.pick(id, this.keys))
+    values = 'sync_status = ' + status
+    'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
 })
 
 exports.TableMonitor = new JS.Class(events.EventEmitter, {
-  initialize: (pool, table, interval=600000) ->
-    this.pool = pool
+  initialize: (table, interval=600000) ->
     this.table = table
-    this
+    this.interval = interval
 
   start: ->
     this.pollData()
 
   pollData: ->
     self = this
+    func = -> self.pollData()
     this.table.query()
       .on 'row', (row) ->
         self.processRow(row)
+      .on 'end', ->
+        setTimeout(func, self.interval)
 
   processRow: (row) ->
     for key, value of row
@@ -58,32 +86,30 @@ exports.TableMonitor = new JS.Class(events.EventEmitter, {
         row[key] = value.toString()
 
     if row.sync_status == 1
-      this.emit 'publish', row
+      this.emit 'publish', this.table, row
+    else if row.sync_status == 2
+      this.emit 'update', this.table, row
     else if row.sync_status == 3
-      this.emit 'update', row
-    else if row.sync_status == 4
-      this.emit 'delete', row
+      this.emit 'delete', this.table, row
 })
 
-joinValues = (input, fields) ->
-  result = []
-  for f in fields
-    if input[f]?
-      result.push escapeString(input[f])
-    else
-      result.push null
-  return join(result)
+joinFields = (fields) ->
+  '(' + join(fields) + ')'
+
+joinKeyValues = (hash) ->
+  join(k + ' = ' + escapeString(v) for k, v of hash)
+
+joinConditionValues = (hash) ->
+  join(k + ' = ' + escapeString(v) for k, v of hash, ' AND ')
+
+join = (arr, separator=',') ->
+  under.reduce(arr, (a,b) -> a + separator + b)
+
+pickValues = (input, fields) ->
+  (if typeof input[f] == 'string' then escapeString(input[f]) else input[f]) for f in fields
 
 escapeString = (value) ->
-  if value? and typeof value == 'string'
-    return '"' + value + '"'
-  else
-    return null
+  if under.isString(value) then '"' + value + '"' else escapeUndefined(value)
 
-join = (arr) ->
-  if arr.length == 0
-    return '()'
-  str = '('
-  for a in arr
-    str += a + ','
-  return str.substr(0, str.length - 1) + ')'
+escapeUndefined = (value) ->
+  if typeof value == 'undefined' then null else value

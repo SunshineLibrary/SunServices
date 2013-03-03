@@ -1,4 +1,5 @@
-init    = require './init.js'
+init = require './init.js'
+under = require 'underscore'
 
 hostname = require('os').hostname()
 
@@ -39,13 +40,9 @@ exports.DataMessageBuilder = new JS.Class({
     }
 
   getId: (data) ->
-    this.filterData(data, this.key)
+    under.pick(data, this.key)
 
   getContent: (data) ->
-    this.filterData(data, this.fields)
+    under.pick(data, this.fields)
 
-  filterData: (data, filter) ->
-    result = {}
-    (result[k] = data[k] || null ) for k in filter
-    return result
 })

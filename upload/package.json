@@ -6,7 +6,7 @@
         "amqp": "0.1.4"
         , "cli-color": "0.2.2"
         , "jsclass": "3.0.9"
+        , "mysql": "2.0.0-alpha7"
         , "underscore": "1.4.4"
-        , "sequelize": "1.4.1"
     }
 }

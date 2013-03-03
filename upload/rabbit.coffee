@@ -68,6 +68,6 @@ exports.RabbitMessenger = new JS.Class(events.EventEmitter, {
       this.publish message
 
   publish: (message) ->
-      util.log("Sending message...")
+      util.log("Sending message to " + this.publishExchangeName)
       this.publishExchange.publish "", message
 })
