@@ -7,13 +7,21 @@ config = require './local_config'
 messenger = new rabbit.RabbitMessenger(
   config.connectionParams, config.queueName, config.exchangeName, config.pubExchangeName)
 
+####################################################################################################
+#                                                                                                  #
+#                     Load tables from models and listen for local changes                         #
+#                                                                                                  #
+####################################################################################################
 tables = {}
 builders = {}
 
-for model in require('./models').models
-  builders[model.tableName] = new message.DataMessageBuilder(model.tableName, model.keys, model.fields)
+loadTable = (model) ->
   tables[model.tableName] = new database.Table(config.pool, model.tableName, model.keys, model.fields)
 
+loadMessageBuilder= (model) ->
+  builders[model.tableName] = new message.DataMessageBuilder(model.tableName, model.keys, model.fields)
+
+startMonitor = (model) ->
   monitor = new database.TableMonitor(tables[model.tableName], 10000)
   monitor
     .on 'publish', (table, row) ->
@@ -27,26 +35,50 @@ for model in require('./models').models
       table.delete(row)
     .start()
 
+for model in require('./models').models
+  loadTable(model)
+  if model.tableName != 'media'
+    loadMessageBuilder(model)
+    startMonitor(model)
+
+
+####################################################################################################
+#                                                                                                  #
+#                                   Define handlers for actions                                    #
+#                                                                                                  #
+####################################################################################################
 hostname = require('os').hostname()
 
+onUpdate = (message) ->
+  if message.source != hostname
+    tables[message.type].update(message.id, message.content)
+      .on 'updated', ->
+        util.log('Updated: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
+  else
+    util.log('Ignored update message from self.')
+
+onDelete = (message) ->
+  if message.source != hostname
+    tables[message.type].delete(message.id)
+      .on 'deleted', ->
+        util.log('Deleted: ' + message.type + JSON.stringify(message.id))
+  else
+    util.log('Ignored delete message from self.')
+
+
+####################################################################################################
+#                                                                                                  #
+#                                Listen for updates from cloud                                     #
+#                                                                                                  #
+####################################################################################################
 messenger.on 'message', (message) ->
   util.log('Received: ' + JSON.stringify(message))
   switch message.action
     when 'update'
-      if message.source != hostname
-        tables[message.type].update(message.id, message.content)
-          .on 'updated', ->
-            util.log('Updated: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
-      else
-        util.log('Ignored update message from self.')
+      onUpdate(message)
     when 'delete'
-      if message.source != hostname
-        tables[message.type].delete(message.id)
-          .on 'deleted', ->
-            util.log('Deleted: ' + message.type + JSON.stringify(message.id))
-      else
-        util.log('Ignored delete message from self.')
+      onDelete(message)
     else
-      console.log('Unrecognized message: ' + JSON.stringify(message))
+      util.log('Unrecognized message: ' + JSON.stringify(message))
 
 messenger.start()
