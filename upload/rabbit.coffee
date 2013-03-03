@@ -68,12 +68,6 @@ exports.RabbitMessenger = new JS.Class(events.EventEmitter, {
       this.publish message
 
   publish: (message) ->
-      util.log("Sending message: "+ this.stringify(message))
+      util.log("Sending message...")
       this.publishExchange.publish "", message
-
-  stringify: (message) ->
-    if message instanceof String
-      message
-    else
-      JSON.stringify message
 })

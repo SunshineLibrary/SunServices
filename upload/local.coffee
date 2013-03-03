@@ -1,5 +1,7 @@
 rabbit = require './rabbit'
 message = require './message'
+mysql = require 'mysql'
+database = require './database'
 
 connectionParams = {
     host: '42.121.108.196'
@@ -15,16 +17,24 @@ pubExchangeName = 'local.updates.publish'
 messenger = new rabbit.RabbitMessenger(connectionParams, queueName, exchangeName, pubExchangeName)
 messenger.start()
 
-builder1 = new message.DataMessageBuilder('pieces', 'uuid', ['body', 'title'])
-builder2 = new message.DataMessageBuilder('folder_pieces', ['folder_id', 'piece_id'], ['type'])
+builder = new message.DataMessageBuilder('pieces', 'uuid', ['name', 'description', 'piece_type', 'medium_id'])
 
-console.log(builder1)
-console.log(builder2)
+pool  = mysql.createPool({
+  host: 'localhost'
+  , user     : 'local_server'
+  , password : 'local_server'
+  , database : 'local_server'
+  , charset  : 'utf8'
+})
 
-messenger.send(builder1.newDeleteMessage({uuid: '1', title: 'Title Delete', body: 'Body Delete'}))
-messenger.send(builder1.newUpdateMessage({uuid: '2', title: 'Title Update', body: 'Body Update'}))
-messenger.send(builder1.newPublishMessage({uuid: '3', title: 'Title Publish', body: 'Body Publish'}))
+table = new database.Table(pool, 'pieces', ['uuid', 'name', 'description', 'piece_type', 'medium_id'])
+monitor = new database.TableMonitor(pool, table)
+monitor
+  .on 'publish', (row) ->
+    messenger.send builder.newPublishMessage(row)
+  .on 'update', (row) ->
+    messenger.send builder.newUpdataeMessage(row)
+  .on 'delete', (row) ->
+    messenger.send builder.newDeleteMessage(row)
+  .start()
 
-messenger.send(builder2.newDeleteMessage({folder_id: '1', piece_id: '1', type: 'Delete'}))
-messenger.send(builder2.newUpdateMessage({folder_id: '2', piece_id: '2', type: 'Update'}))
-messenger.send(builder2.newPublishMessage({folder_id: '3', piece_id: '2', type: 'Publish'}))

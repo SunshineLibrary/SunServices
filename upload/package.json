@@ -3,8 +3,10 @@
     "desciption": "Upload local contents to the cloud on request.",
     "version": "0.0.1",
     "dependencies": {
-        "amqp": "0.1.4",
-        "cli-color": "0.2.2",
-        "jsclass": "3.0.9"
+        "amqp": "0.1.4"
+        , "cli-color": "0.2.2"
+        , "jsclass": "3.0.9"
+        , "underscore": "1.4.4"
+        , "sequelize": "1.4.1"
     }
 }
