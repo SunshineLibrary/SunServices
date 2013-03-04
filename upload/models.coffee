@@ -29,4 +29,10 @@ images = {
   ]
 }
 
-exports.models = [admins, pieces, images]
+media = {
+  tableName: 'media'
+  , keys: ['uuid']
+  , fields: []
+}
+
+exports.models = [admins, pieces, images, media]

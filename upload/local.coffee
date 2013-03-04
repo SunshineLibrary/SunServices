@@ -2,6 +2,7 @@ util = require 'util'
 rabbit = require './rabbit'
 message = require './message'
 database = require './database'
+transport = require './transport'
 config = require './local_config'
 
 messenger = new rabbit.RabbitMessenger(
@@ -26,10 +27,22 @@ startMonitor = (model) ->
   monitor
     .on 'publish', (table, row) ->
       messenger.send builders[table.tableName].newPublishMessage(row)
-      table.changeStatus(row, 4)
+      table.changeStatus(row, 5)
     .on 'update', (table, row) ->
       messenger.send builders[table.tableName].newUpdateMessage(row)
-      table.changeStatus(row, 4)
+      table.changeStatus(row, 5)
+    .on 'delete', (table, row) ->
+      messenger.send builders[table.tableName].newDeleteMessage(row)
+      table.delete(row)
+    .start()
+
+mediaTransport = new transport.MediaTransport('localhost:3000', 'localhost:3001')
+startMediaMonitor = (model) ->
+  monitor = new database.TableMonitor(tables[model.tableName], 10000)
+  monitor
+    .on 'publish', (table, row) ->
+      mediaTransport.upload(row.uuid)
+      table.changeStatus(row, 5)
     .on 'delete', (table, row) ->
       messenger.send builders[table.tableName].newDeleteMessage(row)
       table.delete(row)
@@ -37,10 +50,13 @@ startMonitor = (model) ->
 
 for model in require('./models').models
   loadTable(model)
+  loadMessageBuilder(model)
+  util.log 'Starting monitor: ' + model.tableName
   if model.tableName != 'media'
-    loadMessageBuilder(model)
     startMonitor(model)
-
+  else
+    util.log 'Starting media monitor'
+    startMediaMonitor(model)
 
 ####################################################################################################
 #                                                                                                  #

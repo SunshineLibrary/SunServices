@@ -8,5 +8,6 @@
         , "jsclass": "3.0.9"
         , "mysql": "2.0.0-alpha7"
         , "underscore": "1.4.4"
+        , "request": "2.14.0"
     }
 }
