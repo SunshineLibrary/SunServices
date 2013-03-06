@@ -1,7 +1,7 @@
 mysql = require 'mysql'
 
 exports.connectionParams = {
-  host: '42.121.108.196'
+  host: '10.8.0.1'
   , login: 'cloud_server'
   , password: 'gf84hvf893'
   , vhost: '/sunshine'

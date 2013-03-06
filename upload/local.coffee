@@ -24,7 +24,7 @@ loadTable = (model) ->
 loadMessageBuilder= (model) ->
   builders[model.tableName] = new message.DataMessageBuilder(model.tableName, model.keys, model.fields)
 
-mediaTransport = new transport.MediaTransport('localhost:3000', 'localhost:3001')
+mediaTransport = new transport.MediaTransport('localhost', '10.8.0.2')
 
 startMonitor = (model) ->
   monitor = new database.TableMonitor(tables[model.tableName], 10000)
