@@ -3,7 +3,7 @@ mysql = require 'mysql'
 exports.connectionParams = {
   host: '10.8.0.1'
   , login: 'cloud_server'
-  , password: 'gf84hvf893'
+  , password: ''
   , vhost: '/sunshine'
 }
 
@@ -14,7 +14,7 @@ exports.pubExchangeName = 'cloud.updates.broadcast'
 exports.pool  = mysql.createPool({
   host: 'localhost'
   , user     : 'cloud_server'
-  , password : 'cloud_server'
+  , password : ''
   , database : 'cloud_server'
   , charset  : 'utf8'
 })

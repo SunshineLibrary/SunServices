@@ -3,7 +3,7 @@ mysql = require 'mysql'
 exports.connectionParams = {
     host: '10.8.0.1'
     , login: 'local_server'
-    , password: '8he90zhn3o'
+    , password: ''
     , vhost: '/sunshine'
 }
 
@@ -14,7 +14,7 @@ exports.pubExchangeName = 'local.updates.publish'
 exports.pool = mysql.createPool({
   host: 'localhost'
   , user     : 'local_server'
-  , password : 'local_server'
+  , password : ''
   , database : 'local_server'
   , charset  : 'utf8'
 })
