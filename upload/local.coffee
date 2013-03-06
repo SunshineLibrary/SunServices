@@ -1,3 +1,4 @@
+#!/usr/bin/env coffee
 util = require 'util'
 rabbit = require './rabbit'
 message = require './message'
@@ -8,11 +9,12 @@ config = require './local_config'
 messenger = new rabbit.RabbitMessenger(
   config.connectionParams, config.queueName, config.exchangeName, config.pubExchangeName)
 
-####################################################################################################
-#                                                                                                  #
-#                     Load tables from models and listen for local changes                         #
-#                                                                                                  #
-####################################################################################################
+
+#####################################################################################################
+#                                                                                                   #
+#       Define handlers for local changes                                                           #
+#                                                                                                   #
+#####################################################################################################
 tables = {}
 builders = {}
 
@@ -21,6 +23,8 @@ loadTable = (model) ->
 
 loadMessageBuilder= (model) ->
   builders[model.tableName] = new message.DataMessageBuilder(model.tableName, model.keys, model.fields)
+
+mediaTransport = new transport.MediaTransport('localhost:3000', 'localhost:3001')
 
 startMonitor = (model) ->
   monitor = new database.TableMonitor(tables[model.tableName], 10000)
@@ -34,9 +38,11 @@ startMonitor = (model) ->
     .on 'delete', (table, row) ->
       messenger.send builders[table.tableName].newDeleteMessage(row)
       table.delete(row)
+    .on 'download', (table, row) ->
+      mediaTransport.download(row.medium_id)
+      table.changeStatus(row, 5)
     .start()
 
-mediaTransport = new transport.MediaTransport('localhost:3000', 'localhost:3001')
 startMediaMonitor = (model) ->
   monitor = new database.TableMonitor(tables[model.tableName], 10000)
   monitor
@@ -48,21 +54,12 @@ startMediaMonitor = (model) ->
       table.delete(row)
     .start()
 
-for model in require('./models').models
-  loadTable(model)
-  loadMessageBuilder(model)
-  util.log 'Starting monitor: ' + model.tableName
-  if model.tableName != 'media'
-    startMonitor(model)
-  else
-    util.log 'Starting media monitor'
-    startMediaMonitor(model)
 
-####################################################################################################
-#                                                                                                  #
-#                                   Define handlers for actions                                    #
-#                                                                                                  #
-####################################################################################################
+#####################################################################################################
+#                                                                                                   #
+#       Define handlers for actions                                                                 #
+#                                                                                                   #
+#####################################################################################################
 hostname = require('os').hostname()
 
 onUpdate = (message) ->
@@ -82,11 +79,25 @@ onDelete = (message) ->
     util.log('Ignored delete message from self.')
 
 
-####################################################################################################
-#                                                                                                  #
-#                                Listen for updates from cloud                                     #
-#                                                                                                  #
-####################################################################################################
+#####################################################################################################
+#                                                                                                   #
+#       Load tables                                                                                 #
+#                                                                                                   #
+#####################################################################################################
+for model in require('./models').models
+  loadTable(model)
+  loadMessageBuilder(model)
+  if model.tableName != 'media'
+    startMonitor(model)
+  else
+    startMediaMonitor(model)
+
+
+#####################################################################################################
+#                                                                                                   #
+#       Start Listeners                                                                             #
+#                                                                                                   #
+#####################################################################################################
 messenger.on 'message', (message) ->
   util.log('Received: ' + JSON.stringify(message))
   switch message.action

@@ -20,7 +20,11 @@ exports.RabbitMessenger = new JS.Class(events.EventEmitter, {
     self = this
     util.log('Connecting to RabbitMQ server...')
     this.connection = amqp.createConnection(this.connectionParams)
-    this.connection.on('ready', -> self.onConnected())
+    this.connection
+      .on 'ready', ->
+        self.onConnected()
+      .on 'error', (err) ->
+        util.log('Rabbit connection error: ' + err)
 
   onConnected: ->
     self = this

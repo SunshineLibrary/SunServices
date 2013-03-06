@@ -43,10 +43,12 @@ exports.Table = new JS.Class({
   getInsertStatement: (id, content) ->
     values = under.extend(under.clone(id), content)
     values = pickValues(values, this.allFields)
-    'INSERT INTO ' + this.tableName + joinFields(this.allFields) + ' VALUES ' + joinFields(values)
+    'INSERT INTO ' + this.tableName +
+      joinFields(this.allFields) + ' VALUES ' + joinFields(values)
 
   getSelectStatement: ->
-    'SELECT * FROM ' + this.tableName + ' WHERE sync_status = 1 OR sync_status = 2 OR sync_status = 3'
+    'SELECT * FROM ' + this.tableName +
+      ' WHERE sync_status = 1 OR sync_status = 2 OR sync_status = 3 OR sync_status = 4'
 
   getUpdateStatement: (id, content) ->
     conditions = joinConditionValues(under.pick(id, this.keys))
@@ -91,6 +93,8 @@ exports.TableMonitor = new JS.Class(events.EventEmitter, {
       this.emit 'update', this.table, row
     else if row.sync_status == 3
       this.emit 'delete', this.table, row
+    else if row.sync_status == 4
+      this.emit 'download', this.table, row
 })
 
 joinFields = (fields) ->
