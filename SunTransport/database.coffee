@@ -4,6 +4,27 @@ clc    = require 'cli-color'
 init   = require './init.js'
 under  = require 'underscore'
 
+exports.STATUS = STATUS = {
+  REQUEST_PUBLISH: 10
+  , PUBLISHING: 11
+  , REQUEST_UPDATE: 20
+  , REQUEST_DELETE: 30
+  , REQUEST_DOWNLOAD: 40
+  , WAITING_DOWNLOAD: 41
+  , DOWNLOADING: 42
+  , DONE: 50
+}
+
+DEFAULT_CONDITION = {
+  sync_status:
+    [
+      STATUS.REQUEST_PUBLISH
+      , STATUS.REQUEST_UPDATE
+      , STATUS.REQUEST_DELETE
+      , STATUS.REQUEST_DOWNLOAD
+    ]
+}
+
 exports.Table = new JS.Class({
   initialize: (pool, tableName, keys, fields) ->
     this.pool = pool
@@ -15,8 +36,9 @@ exports.Table = new JS.Class({
   insert: (id, content) ->
     this.execute(this.getInsertStatement(id, content), 'inserted')
 
-  query: ->
-    this.execute(this.getSelectStatement(), 'row')
+  query: (condition) ->
+    condition = condition || DEFAULT_CONDITION
+    this.execute(this.getSelectStatement(condition), 'row')
 
   update: (id, content) ->
     this.execute(this.getUpdateStatement(id, content), 'updated')
@@ -46,21 +68,21 @@ exports.Table = new JS.Class({
     'INSERT INTO ' + this.tableName +
       joinFields(this.allFields) + ' VALUES ' + joinFields(values)
 
-  getSelectStatement: ->
-    'SELECT * FROM ' + this.tableName +
-      ' WHERE sync_status = 1 OR sync_status = 2 OR sync_status = 3 OR sync_status = 4'
+  getSelectStatement: (condition) ->
+    conditions = joinConditions(condition)
+    'SELECT * FROM ' + this.tableName + ' WHERE ' + conditions
 
   getUpdateStatement: (id, content) ->
-    conditions = joinConditionValues(under.pick(id, this.keys))
+    conditions = joinConditions(under.pick(id, this.keys))
     values = joinKeyValues(under.pick(content, this.fields))
     'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
 
   getDeleteStatement: (id) ->
-    conditions = joinConditionValues(under.pick(id, this.keys))
+    conditions = joinConditions(under.pick(id, this.keys))
     'DELETE FROM ' + this.tableName + ' WHERE ' + conditions
 
   getChangeStatusStatement: (id, status) ->
-    conditions = joinConditionValues(under.pick(id, this.keys))
+    conditions = joinConditions(under.pick(id, this.keys))
     values = 'sync_status = ' + status
     'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
 })
@@ -87,13 +109,13 @@ exports.TableMonitor = new JS.Class(events.EventEmitter, {
       if value instanceof Buffer
         row[key] = value.toString()
 
-    if row.sync_status == 1
+    if row.sync_status == STATUS.REQUEST_PUBLISH
       this.emit 'publish', this.table, row
-    else if row.sync_status == 2
+    else if row.sync_status == STATUS.REQUEST_UPDATE
       this.emit 'update', this.table, row
-    else if row.sync_status == 3
+    else if row.sync_status == STATUS.REQUEST_DELETE
       this.emit 'delete', this.table, row
-    else if row.sync_status == 4
+    else if row.sync_status == STATUS.REQUEST_DOWNLOAD
       this.emit 'download', this.table, row
 })
 
@@ -103,14 +125,26 @@ joinFields = (fields) ->
 joinKeyValues = (hash) ->
   join(k + ' = ' + escapeString(v) for k, v of hash)
 
-joinConditionValues = (hash) ->
-  join(k + ' = ' + escapeString(v) for k, v of hash, ' AND ')
+joinConditions = (hash) ->
+  join(getCondition(k, v) for k, v of hash, ' AND ')
 
 join = (arr, separator=',') ->
   under.reduce(arr, (a,b) -> a + separator + b)
 
 pickValues = (input, fields) ->
   (if typeof input[f] == 'string' then escapeString(input[f]) else input[f]) for f in fields
+
+getCondition = (key, value) ->
+  if value instanceof Array
+    getArrayCondition(key, value)
+  else
+    getSingleCondition(key, value)
+
+getArrayCondition = (key, value) ->
+  key + ' IN (' + join(escapeString(v) for v in value) + ')'
+
+getSingleCondition = (key, value) ->
+  key + ' = ' + escapeString(value)
 
 escapeString = (value) ->
   if under.isString(value) then '"' + value + '"' else escapeUndefined(value)

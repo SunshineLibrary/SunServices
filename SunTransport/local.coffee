@@ -31,16 +31,16 @@ startMonitor = (model) ->
   monitor
     .on 'publish', (table, row) ->
       messenger.send builders[table.tableName].newPublishMessage(row)
-      table.changeStatus(row, 5)
+      table.changeStatus(row, 50)
     .on 'update', (table, row) ->
       messenger.send builders[table.tableName].newUpdateMessage(row)
-      table.changeStatus(row, 5)
+      table.changeStatus(row, 50)
     .on 'delete', (table, row) ->
       messenger.send builders[table.tableName].newDeleteMessage(row)
       table.delete(row)
     .on 'download', (table, row) ->
       mediaTransport.download(row.medium_id)
-      table.changeStatus(row, 5)
+      table.changeStatus(row, 50)
     .start()
 
 startMediaMonitor = (model) ->
@@ -48,7 +48,10 @@ startMediaMonitor = (model) ->
   monitor
     .on 'publish', (table, row) ->
       mediaTransport.upload(row.uuid)
-      table.changeStatus(row, 5)
+      table.changeStatus(row, database.STATUS.DONE)
+    .on 'update', (table, row) ->
+      mediaTransport.upload(row.uuid)
+      table.changeStatus(row, database.STATUS.DONE)
     .on 'delete', (table, row) ->
       messenger.send builders[table.tableName].newDeleteMessage(row)
       table.delete(row)
