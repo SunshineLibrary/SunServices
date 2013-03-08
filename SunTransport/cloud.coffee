@@ -26,9 +26,12 @@ for model in require('./models').models
 #                                                                                                   #
 #####################################################################################################
 onPublish = (message) ->
-  tables[message.type].insert(message.id, message.content)
-    .on 'inserted', ->
-      util.log('Published: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
+  if message.type = 'media'
+    messenger.send message
+  else
+    tables[message.type].insert(message.id, message.content)
+      .on 'inserted', ->
+        util.log('Published: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
 
 onUpdate = (message) ->
   tables[message.type].update(message.id, message.content)

@@ -11,17 +11,26 @@ exports.MediaTransport = new JS.Class({
     this.localHost = localHost
     this.cloudHost = cloudHost
 
-  upload: (mediaId) ->
-    this.transfer(mediaId, this.localHost, this.cloudHost)
+  upload: (mediaId, callback) ->
+    this.transfer(mediaId, this.localHost, this.cloudHost, callback)
 
-  download: (mediaId) ->
-    this.transfer(mediaId, this.cloudHost, this.localHost)
+  download: (mediaId, callback) ->
+    this.transfer(mediaId, this.cloudHost, this.localHost, callback)
 
-  transfer: (mediaId, srcHost, destHost) ->
+  # Check if downloaded file exists
+  checkDownload: (mediaId, callback) ->
+    util.log("Checking existence for media[" + mediaId + "]")
+    downloadUrl = 'http://' + srcHost+ '/download/media/' + mediaId
+    # This is a quick test for now
+    http.get downloadUrl, (response) ->
+      if response.statusCode  == 302
+        callback()
+
+  transfer: (mediaId, srcHost, destHost, callback) ->
     util.log("Transporting media[" + mediaId + "]")
     downloadUrl = 'http://' + srcHost+ '/download/media/' + mediaId
     uploadUrl = 'http://' + destHost+ '/upload/media/' + mediaId
-    transfer(downloadUrl, uploadUrl)
+    transfer(downloadUrl, uploadUrl, callback)
 })
 
 transfer = (downloadUrl, uploadUrl) ->
@@ -30,7 +39,10 @@ transfer = (downloadUrl, uploadUrl) ->
     form.append('file', response)
     form.getLength (err, length) ->
       util.log("Content-Length: " + length)
-      put = request.put(uploadUrl)
+      put = request.put uploadUrl, (error, response, body) ->
+        if !error and response.statusCode == 200
+          util.log("Done uploading to: " + uploadUrl)
+          callback()
       put.setHeader('Content-Length', length)
       put._form = form
 

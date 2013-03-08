@@ -49,6 +49,9 @@ exports.Table = new JS.Class({
   changeStatus: (id, status) ->
     this.execute(this.getChangeStatusStatement(id, status), 'updated')
 
+  changeAllStatus: (condition, status) ->
+    this.execute(this.getChangeAllStatusStatement(condition, status), 'updated')
+
   execute: (statement, event) ->
     emitter = new events.EventEmitter()
     this.pool.getConnection (err, connection) ->
@@ -83,6 +86,10 @@ exports.Table = new JS.Class({
 
   getChangeStatusStatement: (id, status) ->
     conditions = joinConditions(under.pick(id, this.keys))
+    values = 'sync_status = ' + status
+    'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
+  getChangeAllStatusStatement: (condition, status) ->
+    conditions = joinConditions(condition)
     values = 'sync_status = ' + status
     'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
 })
