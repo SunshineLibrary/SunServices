@@ -88,6 +88,7 @@ exports.Table = new JS.Class({
     conditions = joinConditions(under.pick(id, this.keys))
     values = 'sync_status = ' + status
     'UPDATE ' + this.tableName + ' SET ' + values + ' WHERE ' + conditions
+
   getChangeAllStatusStatement: (condition, status) ->
     conditions = joinConditions(condition)
     values = 'sync_status = ' + status
@@ -154,7 +155,10 @@ getSingleCondition = (key, value) ->
   key + ' = ' + escapeString(value)
 
 escapeString = (value) ->
-  if under.isString(value) then '"' + value + '"' else escapeUndefined(value)
+  if under.isString(value) || Buffer.isBuffer(value)
+    '"' + value.toString() + '"'
+  else
+    escapeUndefined(value)
 
 escapeUndefined = (value) ->
   if typeof value == 'undefined' then null else value

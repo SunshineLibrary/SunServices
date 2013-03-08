@@ -18,3 +18,7 @@ exports.pool = mysql.createPool({
   , database : 'local_server'
   , charset  : 'utf8'
 })
+
+exports.localhost = 'localhost'
+
+exports.cloudhost = '10.8.0.2'

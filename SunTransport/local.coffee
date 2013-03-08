@@ -7,7 +7,7 @@ LocalService = require './local_service'
 messenger = new rabbit.RabbitMessenger(
   config.connectionParams, config.queueName, config.exchangeName, config.pubExchangeName)
 
-transport = new transport.MediaTransport('localhost', '10.8.0.2')
+transport = new transport.MediaTransport(config.localhost, config.cloudhost)
 
 models = require('./models').models
 

@@ -20,7 +20,7 @@ exports.MediaTransport = new JS.Class({
   # Check if downloaded file exists
   checkDownload: (mediaId, callback) ->
     util.log("Checking existence for media[" + mediaId + "]")
-    downloadUrl = 'http://' + srcHost+ '/download/media/' + mediaId
+    downloadUrl = 'http://' + this.cloudHost + '/download/media/' + mediaId
     # This is a quick test for now
     http.get downloadUrl, (response) ->
       if response.statusCode  == 302
@@ -33,7 +33,7 @@ exports.MediaTransport = new JS.Class({
     transfer(downloadUrl, uploadUrl, callback)
 })
 
-transfer = (downloadUrl, uploadUrl) ->
+transfer = (downloadUrl, uploadUrl, callback) ->
   requestWithRedirect downloadUrl,  (response) ->
     form = new FormData()
     form.append('file', response)

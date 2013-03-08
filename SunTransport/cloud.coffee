@@ -26,7 +26,7 @@ for model in require('./models').models
 #                                                                                                   #
 #####################################################################################################
 onPublish = (message) ->
-  if message.type = 'media'
+  if message.type == 'media'
     messenger.send message
   else
     tables[message.type].insert(message.id, message.content)

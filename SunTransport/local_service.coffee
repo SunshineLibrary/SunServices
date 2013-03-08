@@ -29,11 +29,12 @@ module.exports = new JS.Class({
     this.messenger.start()
 
   onRequestPublish: (table, row) ->
+    self = this
     if table == this.mediaTable
       table.changeStatus(row, STATUS.PUBLISHING)
       this.transport.upload row.uuid, ->
         table.changeStatus(row, STATUS.DONE)
-        send this.builders[table.tableName].newPublishMessage(row)
+        self.send self.builders[table.tableName].newPublishMessage(row)
     else
       this.send this.builders[table.tableName].newPublishMessage(row)
       table.changeStatus(row, STATUS.DONE)
@@ -49,26 +50,32 @@ module.exports = new JS.Class({
   onRequestDownload: (table, row)->
     self = this
     table.changeStatus(row, STATUS.WAITING_DOWNLOAD)
-    this.mediaExists row.medium_id, (exists) ->
-      if !exists and acquireLock(self.mediaLock, row.medium_id)
-        self.createMedia row.medium_id, ->
-          releaseLock(self.mediaLock, row.medium_id)
-        self.transport.checkDownload row.medium_id, ->
-          if acquireLock(self.downloadLock, row.medium_id)
-            self.startMediaDownload(row)
+
+    if row.medium_id?
+      this.mediaExists row.medium_id, (exists) ->
+        if !exists and acquireLock(self.mediaLock, row.medium_id)
+          self.createMedia row.medium_id, ->
+            releaseLock(self.mediaLock, row.medium_id)
+          self.transport.checkDownload row.medium_id, ->
+            if acquireLock(self.downloadLock, row.medium_id)
+              self.startMediaDownload(row.medium_id)
 
   onReceivePublish: (message) ->
     self = this
     if validateHost(message.source) and message.type == 'media'
-      if aquireLock(this.downloadLock, message.id.uuid)
-        findPendingDownload tables[message.type], message.id, (row) ->
-          self.startMediaDownload(row)
+      if acquireLock(this.downloadLock, message.id.uuid)
+        findPendingDownload this.mediaTable, message.id, (row) ->
+          self.startMediaDownload(row.uuid)
 
   onReceiveUpdate: (message) ->
     if validateHost(message.source)
-      tables[message.type].update(message.id, message.content)
-        .on 'updated', ->
-          util.log('Updated: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
+      tables[message.type].query(message.id)
+        .on 'updated', (row) ->
+          if message.medium_id != row.medium_id
+            messsage.content['sync_status'] = STATUS.REQUEST_DOWNLOAD
+          tables[message.type].update(message.id, message.content)
+            .on 'updated', ->
+              util.log('Updated: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
 
   onReceiveDelete: (message) ->
     if validateHost(message.source)
@@ -85,25 +92,27 @@ module.exports = new JS.Class({
         callback(exists)
 
   createMedia: (mediaId, callback) ->
+    self = this
     medium = {uuid: mediaId}
     this.mediaTable.insert(medium, {})
       .on 'end', ->
-        releaseLock(self.mediaLock, mediaId)
+        self.mediaTable.changeStatus(medium, STATUS.WAITING_DOWNLOAD)
         callback()
 
-  startMediaDownload: (row) ->
+  startMediaDownload: (mediaId) ->
     self = this
-    table.changeStatus(row, STATUS.DOWNLOADING)
-    this.transport.download row.medium_id, ->
-      self.markDownloadComplete(row.medium_id)
-      releaseLock(this.downloadLock, row.medium_id)
+    medium = {uuid: mediaId}
+    this.mediaTable.changeStatus(medium, STATUS.DOWNLOADING)
+    this.transport.download mediaId, ->
+      self.markDownloadComplete(mediaId)
+      releaseLock(self.downloadLock, mediaId)
 
   markDownloadComplete: (mediaId) ->
-    for table in this.tables
+    for tableName, table of this.tables
       if table == this.mediaTable
         table.changeStatus({uuid: mediaId}, STATUS.DONE)
-      else
-        tale.changeAllStatus({medium_id: mediaId}, STATUS.DONE)
+      else if under.contains(table.fields, 'medium_id')
+        table.changeAllStatus({medium_id: mediaId}, STATUS.DONE)
 
   send: (message) ->
     this.messenger.send message
@@ -145,7 +154,7 @@ validateHost = (hostname) ->
   util.log('Ignored message from self.') unless isValid
   return isValid
 
-aquireLock = (hash, key) ->
+acquireLock = (hash, key) ->
   if !hash[key] then hash[key] = true else false
 
 releaseLock = (hash, key) ->
@@ -155,5 +164,5 @@ PENDING_DOWNLOAD = {sync_status: [STATUS.REQUEST_DOWNLOAD, STATUS.WAITING_DOWNLO
 findPendingDownload = (table, id, callback) ->
   conditions = under.extend(under.clone(PENDING_DOWNLOAD), id)
   table.query(conditions)
-    .on 'result', (row) ->
+    .on 'row', (row) ->
       callback(row)
