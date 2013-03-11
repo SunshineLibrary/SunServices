@@ -25,6 +25,8 @@ exports.MediaTransport = new JS.Class({
     http.get downloadUrl, (response) ->
       if response.statusCode  == 302
         callback()
+      response.on 'error', (err) ->
+        util.log("Failed to check download: " +  err)
 
   transfer: (mediaId, srcHost, destHost, callback) ->
     util.log("Transporting media[" + mediaId + "]")
