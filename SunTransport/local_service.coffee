@@ -68,18 +68,19 @@ module.exports = new JS.Class({
           self.startMediaDownload(row.uuid)
 
   onReceiveUpdate: (message) ->
+    self = this
     if validateHost(message.source)
-      tables[message.type].query(message.id)
+      this.tables[message.type].query(message.id)
         .on 'updated', (row) ->
           if message.medium_id != row.medium_id
             messsage.content['sync_status'] = STATUS.REQUEST_DOWNLOAD
-          tables[message.type].update(message.id, message.content)
+          self.tables[message.type].update(message.id, message.content)
             .on 'updated', ->
               util.log('Updated: ' + message.type + JSON.stringify(message.id) + ' ' + JSON.stringify(message.content))
 
   onReceiveDelete: (message) ->
     if validateHost(message.source)
-      tables[message.type].delete(message.id)
+      this.tables[message.type].delete(message.id)
         .on 'deleted', ->
           util.log('Deleted: ' + message.type + JSON.stringify(message.id))
 
