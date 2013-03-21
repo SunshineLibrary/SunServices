@@ -59,6 +59,10 @@ module.exports = new JS.Class({
           self.transport.checkDownload row.medium_id, ->
             if acquireLock(self.downloadLock, row.medium_id)
               self.startMediaDownload(row.medium_id)
+    else if table.tableName == 'media'
+      self.transport.checkDownload row.uuid, ->
+        if acquireLock(self.downloadLock, row.uuid)
+          self.startMediaDownload(row.uuid)
 
   onReceivePublish: (message) ->
     self = this
