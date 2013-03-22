@@ -29,13 +29,18 @@ exports.MediaTransport = new JS.Class({
         util.log("Failed to check download: " +  err)
 
   transfer: (mediaId, srcHost, destHost, callback) ->
+    self = this
     util.log("Transporting media[" + mediaId + "]")
     downloadUrl = 'http://' + srcHost+ '/download/media/' + mediaId
     uploadUrl = 'http://' + destHost+ '/upload/media/' + mediaId
-    transfer(downloadUrl, uploadUrl, callback)
+    transfer downloadUrl, uploadUrl, callback, (progress) ->
+      self.onProgress(mediaId, progress)
+
+  onProgress: (mediaId, progress) ->
+    util.log("Transfering media[" + mediaId + "]: " + progress)
 })
 
-transfer = (downloadUrl, uploadUrl, callback) ->
+transfer = (downloadUrl, uploadUrl, callback, updateProgress) ->
   requestWithRedirect downloadUrl,  (response) ->
     form = new FormData()
     form.append('file', response)
@@ -44,9 +49,22 @@ transfer = (downloadUrl, uploadUrl, callback) ->
       put = request.put uploadUrl, (error, response, body) ->
         if !error and response.statusCode == 200
           util.log("Done uploading to: " + uploadUrl)
+          updateProgress(100)
           callback()
       put.setHeader('Content-Length', length)
       put._form = form
+
+      bytesReceived = 0
+      lastUpdateTime = 0
+      response.on 'data', (chunk) ->
+        bytesReceived += chunk.length
+        uptime = process.uptime()
+        if bytesReceived == length
+          updateProgress(99)
+        else if uptime - lastUpdateTime > 5
+          progress = Math.floor(bytesReceived * 100 / length)
+          lastUpdateTime = uptime
+          updateProgress(progress)
 
 requestWithRedirect = (url, callback) ->
   http.get url, (response) ->
