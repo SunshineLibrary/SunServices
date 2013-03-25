@@ -74,7 +74,7 @@ module.exports = new JS.Class({
   onReceiveUpdate: (message) ->
     self = this
     if validateHost(message.source)
-      this.tables[message.type].query(message.id)
+      this.tables[message.type].update(message.id, message.content)
         .on 'updated', (row) ->
           if message.medium_id != row.medium_id
             messsage.content['sync_status'] = STATUS.REQUEST_DOWNLOAD
