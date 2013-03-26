@@ -23,8 +23,11 @@ exports.MediaTransport = new JS.Class({
     downloadUrl = 'http://' + this.cloudHost + '/download/media/' + mediaId
     # This is a quick test for now
     http.get downloadUrl, (response) ->
-      if response.statusCode  == 302
+      status = response.statusCode
+      if status == 302
         callback()
+      else
+        util.log("Check download failed with status code: " +  status)
       response.on 'error', (err) ->
         util.log("Failed to check download: " +  err)
 
