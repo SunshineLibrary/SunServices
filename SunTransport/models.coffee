@@ -29,10 +29,22 @@ images = {
   ]
 }
 
+activities = {
+  tableName: 'activities'
+  , keys: ['uuid']
+  , fields: ['medium_id']
+}
+
+problems = {
+  tableName: 'problems'
+  , keys: ['uuid']
+  , fields: ['medium_id']
+}
+
 media = {
   tableName: 'media'
   , keys: ['uuid']
   , fields: []
 }
 
-exports.models = [admins, pieces, images, media]
+exports.models = [admins, pieces, images, activities, problems, media]
