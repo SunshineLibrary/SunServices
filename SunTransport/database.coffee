@@ -101,6 +101,10 @@ exports.TableMonitor = new JS.Class(events.EventEmitter, {
     this.interval = interval
 
   start: ->
+    if this.table.tableName == 'media'
+      util.log(clc.green("Reseting unfinished downloads..."))
+      this.table.changeAllStatus({sync_status: STATUS.WAITING_DOWNLOAD}, STATUS.REQUEST_DOWNLOAD)
+      this.table.changeAllStatus({sync_status: STATUS.DOWNLOADING}, STATUS.REQUEST_DOWNLOAD)
     this.pollData()
 
   pollData: ->

@@ -22,14 +22,14 @@ exports.MediaTransport = new JS.Class({
     util.log("Checking existence for media[" + mediaId + "]")
     downloadUrl = 'http://' + this.cloudHost + '/download/media/' + mediaId
     # This is a quick test for now
-    http.get downloadUrl, (response) ->
+    http.get(downloadUrl, (response) ->
       status = response.statusCode
       if status == 302
         callback()
       else
         util.log("Check download failed with status code: " +  status)
-      response.on 'error', (err) ->
-        util.log("Failed to check download: " +  err)
+    ).on 'error', (err) ->
+      util.log("Failed to check download: " +  err)
 
   transfer: (mediaId, srcHost, destHost, callback) ->
     self = this
