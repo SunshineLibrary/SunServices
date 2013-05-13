@@ -25,11 +25,13 @@ exports.MediaTransport = new JS.Class({
     http.get(downloadUrl, (response) ->
       status = response.statusCode
       if status == 302
-        callback()
+        callback(true)
       else
         util.log("Check download failed with status code: " +  status)
+        callback(false)
     ).on 'error', (err) ->
       util.log("Failed to check download: " +  err)
+      callback(false)
 
   transfer: (mediaId, srcHost, destHost, callback) ->
     self = this

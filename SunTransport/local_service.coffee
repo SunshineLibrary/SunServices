@@ -56,13 +56,19 @@ module.exports = new JS.Class({
         if !exists and acquireLock(self.mediaLock, row.medium_id)
           self.createMedia row.medium_id, ->
             releaseLock(self.mediaLock, row.medium_id)
-          self.transport.checkDownload row.medium_id, ->
-            if acquireLock(self.downloadLock, row.medium_id)
-              self.startMediaDownload(row.medium_id)
+          self.transport.checkDownload row.medium_id, (found) ->
+            if found
+              if acquireLock(self.downloadLock, row.medium_id)
+                self.startMediaDownload(row.medium_id)
+            else
+              self.resetMedia(row.medium_id)
     else if table.tableName == 'media'
-      self.transport.checkDownload row.uuid, ->
-        if acquireLock(self.downloadLock, row.uuid)
-          self.startMediaDownload(row.uuid)
+      self.transport.checkDownload row.uuid, (found) ->
+        if found
+          if acquireLock(self.downloadLock, row.uuid)
+            self.startMediaDownload(row.uuid)
+        else
+          self.resetMedia(row.uuid)
 
   onReceivePublish: (message) ->
     self = this
@@ -104,6 +110,10 @@ module.exports = new JS.Class({
         self.mediaTable.changeStatus(medium, STATUS.WAITING_DOWNLOAD)
         callback()
 
+  resetMedia: (mediaId) ->
+    medium = {uuid: mediaId}
+    this.mediaTable.changeStatus(medium, STATUS.REQUEST_DOWNLOAD)
+
   startMediaDownload: (mediaId) ->
     self = this
     medium = {uuid: mediaId}
@@ -130,7 +140,7 @@ loadMessageBuilder = (model) ->
    new message.DataMessageBuilder(model.tableName, model.keys, model.fields)
 
 loadMonitor = (handler, table_) ->
-  monitor = new database.TableMonitor(table_, 10000)
+  monitor = new database.TableMonitor(table_, 30000)
   monitor
     .on 'publish', (table, row) ->
       handler.onRequestPublish(table, row)
