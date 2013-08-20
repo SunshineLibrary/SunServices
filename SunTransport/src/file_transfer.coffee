@@ -3,36 +3,34 @@ http = require 'http'
 request = require 'request'
 FormData = require 'form-data'
 
-###########################################################################
-#                                                                         #
-# Transfer file from one server to another through HTTP Get and HTTP Post #
-#                                                                         #
-###########################################################################
-exports.FileTransferTask = FileTransferTask = () ->
+# Transfer file from one server to another through HTTP Get and HTTP Post
+exports.FileTransferHandler = FileTransferHandler = () ->
   this.retryCounts = {}
   return this
 
-###########################################################################
-#                                                                         #
-# Implements task handler interface                                       #
-#                                                                         #
-###########################################################################
-FileTransferTask.prototype.handleTask = (task) ->
+# Implements task handler interface to handle fileTransfer tasks
+#
+# Sample file transfer task:
+# {
+#   id: 12345
+#   , action: 'fileTransfer'
+#   , params: {
+#     downloadUrl: http://cloud.sunshine-library.org/media/1a2s3d4f
+#     , uploadUrl: http://localhost/media/1a2s3d4f
+#   }
+# }
+FileTransferHandler.prototype.handleTask = (task) ->
   self = this
   params = task.params
-  self.checkDownload(params.downloadUrl, (success) ->
-      if success
-        self.transfer params.downloadUrl, params.uploadUrl, ->
-          task.done()
-      else
-        self.retry(task)
+  self.checkDownload params.downloadUrl, (success) ->
+    if success
+      self.transfer params.downloadUrl, params.uploadUrl, ->
+        task.done()
+    else
+      self.retry(task)
 
-###########################################################################
-#                                                                         #
-# Check if the requested file exists                                      #
-#                                                                         #
-###########################################################################
-FileTransferTask.prototype.checkDownload = (downloadUrl, callback) ->
+# Check if the requested resource exist
+FileTransferHandler.prototype.checkDownload = (downloadUrl, callback) ->
   util.log("Checking existence: " + downloadUrl)
   http.get(downloadUrl, (response) ->
     status = response.statusCode
@@ -45,21 +43,17 @@ FileTransferTask.prototype.checkDownload = (downloadUrl, callback) ->
     util.log("Failed to check download: " +  err)
     callback(false)
 
-FileTransferTask.prototype.transfer = (downloadUrl, uploadUrl, callback) ->
+FileTransferHandler.prototype.transfer = (downloadUrl, uploadUrl, callback) ->
   self = this
   transfer downloadUrl, uploadUrl, callback, (progress) ->
     self.onProgress(downloadUrl, progress)
 
-FileTransferTask.prototype.onProgress = (downloadUrl, progress) ->
+FileTransferHandler.prototype.onProgress = (downloadUrl, progress) ->
   util.log("Transfer: " + downloadUrl + '[' + progress + ']')
 
 
-###########################################################################
-#                                                                         #
-# Retry download if not successful                                        #
-#                                                                         #
-###########################################################################
-FileTransferTask.prototype.retry = (task) ->
+# Retry download if not successful
+FileTransferHandler.prototype.retry = (task) ->
   retryCount = this.retryCountss[task.id] || 0
   if retryCount < 5
     task.retry(60)
