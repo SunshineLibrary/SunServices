@@ -15,7 +15,8 @@ exports.FileTransferHandler = FileTransferHandler = () ->
 #   id: 12345
 #   , action: 'fileTransfer'
 #   , params: {
-#     downloadUrl: http://cloud.sunshine-library.org/media/1a2s3d4f
+#     auth: 'Auth token depending on applicaiton (optional)'
+#     , downloadUrl: http://cloud.sunshine-library.org/media/1a2s3d4f
 #     , uploadUrl: http://localhost/media/1a2s3d4f
 #   }
 # }
@@ -24,7 +25,7 @@ FileTransferHandler.prototype.handleTask = (task) ->
   params = task.params
   self.checkDownload params.downloadUrl, (success) ->
     if success
-      self.transfer params.downloadUrl, params.uploadUrl, ->
+      self.transfer params.downloadUrl, params.uploadUrl, params.auth, ->
         task.done()
     else
       self.retry(task)
@@ -43,14 +44,13 @@ FileTransferHandler.prototype.checkDownload = (downloadUrl, callback) ->
     util.log("Failed to check download: " +  err)
     callback(false)
 
-FileTransferHandler.prototype.transfer = (downloadUrl, uploadUrl, callback) ->
+FileTransferHandler.prototype.transfer = (downloadUrl, uploadUrl, auth, callback) ->
   self = this
-  transfer downloadUrl, uploadUrl, callback, (progress) ->
+  transfer downloadUrl, uploadUrl, auth, callback, (progress) ->
     self.onProgress(downloadUrl, progress)
 
 FileTransferHandler.prototype.onProgress = (downloadUrl, progress) ->
   util.log("Transfer: " + downloadUrl + '[' + progress + ']')
-
 
 # Retry download if not successful
 FileTransferHandler.prototype.retry = (task) ->
@@ -61,9 +61,10 @@ FileTransferHandler.prototype.retry = (task) ->
   else
     task.done()
 
-transfer = (downloadUrl, uploadUrl, callback, updateProgress) ->
+transfer = (downloadUrl, uploadUrl, auth, callback, updateProgress) ->
   requestWithRedirect downloadUrl,  (response) ->
     form = new FormData()
+    form.append('auth', auth) if auth
     form.append('file', response)
     form.getLength (err, length) ->
       util.log("Content-Length: " + length)

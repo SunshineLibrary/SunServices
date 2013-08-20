@@ -15,7 +15,8 @@ exports.JsonPostHandler = JsonPostHandler = () ->
 #   id: 12345
 #   , action: 'jsonPost'
 #   , params: {
-#     postUrl: http://cloud.sunshine-library.org/pieces
+#     auth: 'Auth token depending on application (optional'
+#     , postUrl: http://cloud.sunshine-library.org/pieces
 #     , payload: {
 #       uuid: '12d389d819f12983a'
 #       , title: 'New Piece'
@@ -26,11 +27,12 @@ exports.JsonPostHandler = JsonPostHandler = () ->
 JsonPostHandler.prototype.handleTask = (task) ->
   self = this
   params = task.params
+  json = {payload: params.payload}
+  json.auth = params.auth if params.auth
   request(
     { method:'POST'
     , uri: params.postUrl
-    , json:
-      { payload: params.payload }
+    , json: json 
     }
   , (error, response, body) ->
     if reponse.statusCode == 201
@@ -47,4 +49,3 @@ JsonPostHandler.prototype.retry = (task) ->
     this.retryCounts[task.id] = retryCount + 1
   else
     task.done()
-
