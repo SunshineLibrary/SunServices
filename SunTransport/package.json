@@ -3,12 +3,10 @@
     "desciption": "Upload local contents to the cloud on request.",
     "version": "0.0.1",
     "dependencies": {
-        "amqp": "0.1.4"
-        , "cli-color": "0.2.2"
-        , "jsclass": "3.0.9"
-        , "mysql": "2.0.0-alpha7"
+        "cli-color": "0.2.2"
         , "underscore": "1.4.4"
         , "request": "2.14.0"
         , "form-data": "0.0.7"
+        , "warpgate": "git://github.com/ukisami/warpgate.git"
     }
 }

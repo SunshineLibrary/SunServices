@@ -1,5 +1,3 @@
-mysql = require 'mysql'
-
 exports.connectionParams = {
   host: '10.8.0.1'
   , login: 'cloud_server'
