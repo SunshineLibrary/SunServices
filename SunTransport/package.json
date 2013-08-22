@@ -7,6 +7,6 @@
         , "underscore": "1.4.4"
         , "request": "2.14.0"
         , "form-data": "0.0.7"
-        , "warpgate": "git://github.com/ukisami/warpgate.git"
+        , "warpgate": "git://github.com/SunshineLibrary/warpgate.git"
     }
 }
