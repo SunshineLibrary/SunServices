@@ -32,10 +32,13 @@ JsonPostHandler.prototype.handleTask = (task) ->
   request(
     { method:'POST'
     , uri: params.postUrl
-    , json: json 
+    , json: json
     }
   , (error, response, body) ->
-    if reponse.statusCode == 201
+    if error
+      util.log(error)
+      task.done()
+    else if response.statusCode == 200
       task.done()
     else
       self.retry(task)
@@ -43,7 +46,7 @@ JsonPostHandler.prototype.handleTask = (task) ->
 
 # Retry post if not successful
 JsonPostHandler.prototype.retry = (task) ->
-  retryCount = this.retryCountss[task.id] || 0
+  retryCount = this.retryCounts[task.id] || 0
   if retryCount < 5
     task.retry(60)
     this.retryCounts[task.id] = retryCount + 1
