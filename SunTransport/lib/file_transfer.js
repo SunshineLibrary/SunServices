@@ -19,37 +19,19 @@
     var params, self;
     self = this;
     params = task.params;
-    return self.checkDownload(params.downloadUrl, function(success) {
+    return self.transfer(params.downloadUrl, params.uploadUrl, params.auth, function(success) {
       if (success) {
-        return self.transfer(params.downloadUrl, params.uploadUrl, params.auth, function() {
-          return task.done();
-        });
+        return task.done();
       } else {
         return self.retry(task);
       }
     });
   };
 
-  FileTransferHandler.prototype.checkDownload = function(downloadUrl, callback) {
-    util.log("Checking existence: " + downloadUrl);
-    return http.get(downloadUrl, function(response) {
-      var status;
-      status = response.statusCode;
-      if (status === 302) {
-        return callback(true);
-      } else {
-        util.log("Check download failed with status code: " + status);
-        return callback(false);
-      }
-    }).on('error', function(err) {
-      util.log("Failed to check download: " + err);
-      return callback(false);
-    });
-  };
-
   FileTransferHandler.prototype.transfer = function(downloadUrl, uploadUrl, auth, callback) {
     var self;
     self = this;
+    util.log("Starting Transfer: " + downloadUrl);
     return transfer(downloadUrl, uploadUrl, auth, callback, function(progress) {
       return self.onProgress(downloadUrl, progress);
     });
@@ -61,7 +43,7 @@
 
   FileTransferHandler.prototype.retry = function(task) {
     var retryCount;
-    retryCount = this.retryCountss[task.id] || 0;
+    retryCount = this.retryCounts[task.id] || 0;
     if (retryCount < 5) {
       task.retry(60);
       return this.retryCounts[task.id] = retryCount + 1;
@@ -73,6 +55,9 @@
   transfer = function(downloadUrl, uploadUrl, auth, callback, updateProgress) {
     return requestWithRedirect(downloadUrl, function(response) {
       var form;
+      if (!response) {
+        return callback(false);
+      }
       form = new FormData();
       if (auth) {
         form.append('auth', auth);
@@ -85,7 +70,7 @@
           if (!error && response.statusCode === 200) {
             util.log("Done uploading to: " + uploadUrl);
             updateProgress(100);
-            return callback();
+            return callback(true);
           }
         });
         put.setHeader('Content-Length', length);
@@ -117,8 +102,12 @@
       } else if (response.statusCode === 200) {
         return callback(response);
       } else {
-        return util.log('Failed to request url: ' + url);
+        util.log('Failed to request url: ' + url);
+        return callback();
       }
+    }).on('error', function(e) {
+      util.log("Http error: " + e.message);
+      return callback();
     });
   };
 

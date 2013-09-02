@@ -23,29 +23,16 @@ exports.FileTransferHandler = FileTransferHandler = () ->
 FileTransferHandler.prototype.handleTask = (task) ->
   self = this
   params = task.params
-  self.checkDownload params.downloadUrl, (success) ->
+  self.transfer params.downloadUrl, params.uploadUrl, params.auth, (success)->
     if success
-      self.transfer params.downloadUrl, params.uploadUrl, params.auth, ->
-        task.done()
+      task.done()
     else
       self.retry(task)
 
 # Check if the requested resource exist
-FileTransferHandler.prototype.checkDownload = (downloadUrl, callback) ->
-  util.log("Checking existence: " + downloadUrl)
-  http.get(downloadUrl, (response) ->
-    status = response.statusCode
-    if status == 302
-      callback(true)
-    else
-      util.log("Check download failed with status code: " +  status)
-      callback(false)
-  ).on 'error', (err) ->
-    util.log("Failed to check download: " +  err)
-    callback(false)
-
 FileTransferHandler.prototype.transfer = (downloadUrl, uploadUrl, auth, callback) ->
   self = this
+  util.log("Starting Transfer: " + downloadUrl)
   transfer downloadUrl, uploadUrl, auth, callback, (progress) ->
     self.onProgress(downloadUrl, progress)
 
@@ -54,7 +41,7 @@ FileTransferHandler.prototype.onProgress = (downloadUrl, progress) ->
 
 # Retry download if not successful
 FileTransferHandler.prototype.retry = (task) ->
-  retryCount = this.retryCountss[task.id] || 0
+  retryCount = this.retryCounts[task.id] || 0
   if retryCount < 5
     task.retry(60)
     this.retryCounts[task.id] = retryCount + 1
@@ -63,6 +50,8 @@ FileTransferHandler.prototype.retry = (task) ->
 
 transfer = (downloadUrl, uploadUrl, auth, callback, updateProgress) ->
   requestWithRedirect downloadUrl,  (response) ->
+    if not response
+      return callback(false)
     form = new FormData()
     form.append('auth', auth) if auth
     form.append('file', response)
@@ -72,7 +61,7 @@ transfer = (downloadUrl, uploadUrl, auth, callback, updateProgress) ->
         if !error and response.statusCode == 200
           util.log("Done uploading to: " + uploadUrl)
           updateProgress(100)
-          callback()
+          callback(true)
       put.setHeader('Content-Length', length)
       put._form = form
 
@@ -89,7 +78,7 @@ transfer = (downloadUrl, uploadUrl, auth, callback, updateProgress) ->
           updateProgress(progress)
 
 requestWithRedirect = (url, callback) ->
-  http.get url, (response) ->
+  http.get(url, (response) ->
     if response.statusCode == 302
       location = sanitizeRedirect(response.headers.location)
       requestWithRedirect(location, callback)
@@ -97,6 +86,11 @@ requestWithRedirect = (url, callback) ->
       callback(response)
     else
       util.log('Failed to request url: ' + url)
+      callback()
+  ).on('error', (e) ->
+    util.log("Http error: " + e.message)
+    callback()
+  )
 
 sanitizeRedirect = (url) ->
   url.split("?")[0]
