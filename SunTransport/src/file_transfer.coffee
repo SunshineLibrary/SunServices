@@ -2,10 +2,12 @@ util = require 'util'
 http = require 'http'
 request = require 'request'
 FormData = require 'form-data'
+throttle = require './throttle'
 
 # Transfer file from one server to another through HTTP Get and HTTP Post
 exports.FileTransferHandler = FileTransferHandler = () ->
   this.retryCounts = {}
+  this.throttler = new throttle.Throttler(2) # Download at most 2 files at once
   return this
 
 # Implements task handler interface to handle fileTransfer tasks
@@ -22,12 +24,15 @@ exports.FileTransferHandler = FileTransferHandler = () ->
 # }
 FileTransferHandler.prototype.handleTask = (task) ->
   self = this
-  params = task.params
-  self.transfer params.downloadUrl, params.uploadUrl, params.auth, (success)->
-    if success
-      task.done()
-    else
-      self.retry(task)
+  util.log("Throttling Transfer: " + task.params.downloadUrl)
+  this.throttler.add (done)->
+    params = task.params
+    self.transfer params.downloadUrl, params.uploadUrl, params.auth, (success)->
+      if success
+        task.done()
+      else
+        self.retry(task)
+      done()
 
 # Check if the requested resource exist
 FileTransferHandler.prototype.transfer = (downloadUrl, uploadUrl, auth, callback) ->
