@@ -28,7 +28,10 @@
       uri: params.postUrl,
       json: json
     }, function(error, response, body) {
-      if (reponse.statusCode === 201) {
+      if (error) {
+        util.log(error);
+        return task.done();
+      } else if (response.statusCode === 200) {
         return task.done();
       } else {
         return self.retry(task);
@@ -38,7 +41,7 @@
 
   JsonPostHandler.prototype.retry = function(task) {
     var retryCount;
-    retryCount = this.retryCountss[task.id] || 0;
+    retryCount = this.retryCounts[task.id] || 0;
     if (retryCount < 5) {
       task.retry(60);
       return this.retryCounts[task.id] = retryCount + 1;
