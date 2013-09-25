@@ -50,7 +50,7 @@ FileTransferHandler.prototype.transfer = (downloadUrl, uploadUrl, auth, callback
     self.onProgress(downloadUrl, progress)
 
 FileTransferHandler.prototype.onProgress = (downloadUrl, progress) ->
-  util.log("Transfer: " + downloadUrl + '[' + progress + ']')
+  util.log("Transfer: " + downloadUrl + ' in processes[' + progress + ']')
 
 # Retry download if not successful
 FileTransferHandler.prototype.retry = (task) ->
